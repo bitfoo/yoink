@@ -15,8 +15,9 @@ from os.path import expanduser
 user = ''
 password = ''
 target = ''
+max_age = 3650
 
-defaultrc=["user:",'\n',"password:",'\n',"target:"]
+defaultrc=["user:",'\n',"password:",'\n',"target:","max_age:",'3650\n']
 
 headers = {
   'User-Agent': 'Yoink! Beta'
@@ -58,6 +59,7 @@ def main():
     print 'user:USERNAME'
     print 'password:PASSWORD'
     print 'target:TORRENTDIR'
+    print 'max_age:MAX_AGE_IN_DAYS'
     return 0
   else:
     rcf = open(rcpath)
@@ -67,7 +69,8 @@ def main():
     password = rcf.readline().rstrip('\n')[9:]
     global target
     target = os.path.expanduser(rcf.readline().rstrip('\n')[7:])
-    if user=='' or password=='' or target=='':
+    max_age = rcf.readline().rstrip('\n')[8:]
+    if user=='' or password=='' or target=='' or max_age=='':
       print 'Finish filling out ~/.yoinkrc and try again!'
       return 0
   search_params = 'search=&freetorrent=1'
@@ -93,11 +96,18 @@ def main():
   with open(cookiefile, 'w') as f:
     pickle.dump(s.cookies, f)
 
+  cur_time = int(time.time())
+  oldest_time = cur_time - (int(max_age) * (24 * 60 * 60))
+
   page = 1
-  while True:
+  beyond_oldest = False
+  while not beyond_oldest:
     r = s.get('https://what.cd/ajax.php?action=browse&' + search_params + "&page={}".format(page), headers=headers)
     data = json.loads(r.content)
     for group in data['response']['results']:
+      if int(group['groupTime']) < oldest_time:
+        beyond_oldest = True
+        break
       if 'torrents' in group:
         for torrent in group['torrents']:
           if not torrent['isFreeleech']:
